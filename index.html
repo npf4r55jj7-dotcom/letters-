@@ -1,0 +1,492 @@
+<title>Обводим буквы</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: letter tabs, a small word card, then two ruled-paper tracing boards (capital and small letter) side by side; they stack on phones. */
+:root {
+  --bg: #EEF3F9;
+  --surface: #FFFFFF;
+  --paper: #FAFCFF;
+  --ink: #17233F;
+  --muted: #55658A;
+  --border: #D3DEEC;
+  --rule: #B9CCE6;
+  --guide: #DCE7F6;
+  --guide-edge: #6F94CC;
+  --brush: #F26A21;
+  --good: #17895C;
+  --f-display: "Nunito", system-ui, sans-serif;
+  --f-letter: "Andika", "Nunito", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1527; --surface: #172036; --paper: #1C2744; --ink: #E9EFFC; --muted: #9AAACB;
+    --border: #2C3B5E; --rule: #3B4F7D; --guide: #2A3D68; --guide-edge: #6F93D4;
+    --brush: #FF8442; --good: #3FCB93; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1527; --surface: #172036; --paper: #1C2744; --ink: #E9EFFC; --muted: #9AAACB;
+  --border: #2C3B5E; --rule: #3B4F7D; --guide: #2A3D68; --guide-edge: #6F93D4;
+  --brush: #FF8442; --good: #3FCB93; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 500 16px/1.45 var(--f-display);
+  padding-block: 20px 36px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--brush); outline-offset: 2px; }
+
+.wrap { max-width: 960px; margin: 0 auto; display: grid; gap: 18px; }
+.eyebrow { font: 800 .75rem/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 800 clamp(1.8rem, 5.5vw, 2.7rem)/1.05 var(--f-display); margin: 10px 0 8px; text-wrap: balance; }
+.lead { margin: 0; max-width: 58ch; color: var(--muted); }
+
+.tabs { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
+.tab {
+  position: relative; min-width: 0; min-height: 48px; padding: 8px 0;
+  font: 700 clamp(.9rem, 3.6vw, 1.5rem)/1 var(--f-letter);
+  background: var(--surface); color: var(--ink);
+  border: 1.5px solid var(--border); border-radius: 12px; cursor: pointer;
+}
+.tab[aria-current="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.tab.done::after {
+  content: "✓"; position: absolute; top: -7px; right: -4px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--good); color: #fff; font: 800 11px/18px var(--f-display); text-align: center;
+}
+
+.info {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px; padding: 14px;
+}
+.pic { width: 64px; height: 64px; flex: none; display: grid; place-items: center; font-size: 2.3rem; background: var(--paper); border-radius: 14px; }
+.say { min-width: 0; flex: 1 1 180px; }
+.say .name { font: 800 1.4rem/1.2 var(--f-display); }
+.say .name .pair { font-family: var(--f-letter); }
+.say .word { font: 400 1.15rem/1.3 var(--f-letter); color: var(--muted); }
+.say .word b { color: var(--brush); font-weight: 700; }
+
+.boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.board { min-width: 0; display: grid; gap: 12px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px; padding: 14px; align-content: start; }
+.bhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bhead h2 { margin: 0; font: 800 1.05rem/1.2 var(--f-display); }
+.stars { display: inline-flex; gap: 2px; font-size: 1.35rem; line-height: 1; }
+.stars span { color: var(--border); }
+.stars span.on { color: var(--brush); }
+@media (prefers-reduced-motion: no-preference) {
+  .stars span.on { animation: pop .35s ease-out; }
+  @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+}
+.canvas-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: var(--paper); border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+.canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ink { touch-action: none; cursor: crosshair; }
+.bfoot { display: flex; align-items: center; gap: 10px; }
+.meter { position: relative; flex: 1; min-width: 0; height: 10px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--brush); border-radius: inherit; transition: width .15s; }
+.meter::after { content: ""; position: absolute; left: 80%; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .45; }
+.pct { min-width: 4.5ch; text-align: right; font: 800 .95rem var(--f-display); font-variant-numeric: tabular-nums; }
+.pct.ok { color: var(--good); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.btn {
+  min-height: 44px; padding: 8px 16px; font-weight: 800; font-size: .95rem;
+  background: var(--surface); color: var(--ink);
+  border: 1.5px solid var(--border); border-radius: 10px; cursor: pointer;
+}
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.ready { box-shadow: 0 0 0 3px var(--brush); }
+
+.msg { min-height: 1.5em; margin: 0; text-align: center; font-weight: 800; color: var(--good); }
+.nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+.nav .btn { min-width: 76px; font-family: var(--f-letter); }
+.status { text-align: center; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.reset { justify-self: center; background: none; border: 0; padding: 8px 12px; color: var(--muted); font-weight: 700; font-size: .85rem; text-decoration: underline; cursor: pointer; }
+</style>
+
+<main class="wrap">
+  <header>
+    <div class="eyebrow">Английский алфавит · A–I</div>
+    <h1>Обводим буквы</h1>
+    <p class="lead">Проведи пальцем или мышкой по серой букве. Когда закрасишь 80% контура (отметка на полоске), буква засчитается. Чем аккуратнее обводка, тем больше звёзд.</p>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Выбор буквы"></nav>
+
+  <section class="info" aria-label="О букве">
+    <div class="pic" id="pic" aria-hidden="true"></div>
+    <div class="say">
+      <div class="name" id="name"></div>
+      <div class="word" id="word"></div>
+    </div>
+    <button class="btn" id="speak" type="button">Послушать слово</button>
+  </section>
+
+  <section class="boards">
+    <article class="board" data-kind="u">
+      <div class="bhead"><h2></h2><span class="stars"></span></div>
+      <div class="canvas-wrap">
+        <canvas class="guide" aria-hidden="true"></canvas>
+        <canvas class="ink" role="img"></canvas>
+      </div>
+      <div class="bfoot"><div class="meter"><i></i></div><span class="pct">0%</span></div>
+      <div class="actions">
+        <button class="btn undo" type="button">Отменить линию</button>
+        <button class="btn clear" type="button">Стереть</button>
+      </div>
+    </article>
+    <article class="board" data-kind="l">
+      <div class="bhead"><h2></h2><span class="stars"></span></div>
+      <div class="canvas-wrap">
+        <canvas class="guide" aria-hidden="true"></canvas>
+        <canvas class="ink" role="img"></canvas>
+      </div>
+      <div class="bfoot"><div class="meter"><i></i></div><span class="pct">0%</span></div>
+      <div class="actions">
+        <button class="btn undo" type="button">Отменить линию</button>
+        <button class="btn clear" type="button">Стереть</button>
+      </div>
+    </article>
+  </section>
+
+  <p class="msg" id="msg" role="status" aria-live="polite"></p>
+
+  <footer class="nav">
+    <button class="btn" id="prev" type="button"></button>
+    <div class="status" id="status"></div>
+    <button class="btn primary" id="next" type="button"></button>
+  </footer>
+  <button class="reset" id="reset" type="button">Сбросить прогресс</button>
+</main>
+
+<script>
+(function () {
+  var LETTERS = [
+    { u: 'A', l: 'a', name: 'эй',   say: 'ay',    word: 'apple',     ru: 'яблоко',     pic: '🍎' },
+    { u: 'B', l: 'b', name: 'би',   say: 'bee',   word: 'bear',      ru: 'медведь',        pic: '🐻' },
+    { u: 'C', l: 'c', name: 'си',   say: 'see',   word: 'cat',       ru: 'кот',        pic: '🐱' },
+    { u: 'D', l: 'd', name: 'ди',   say: 'dee',   word: 'dog',       ru: 'собака',     pic: '🐶' },
+    { u: 'E', l: 'e', name: 'и',    say: 'ee',    word: 'egg',       ru: 'яйцо',       pic: '🥚' },
+    { u: 'F', l: 'f', name: 'эф',   say: 'eff',   word: 'fish',      ru: 'рыба',       pic: '🐟' },
+    { u: 'G', l: 'g', name: 'джи',  say: 'jee',   word: 'goat',      ru: 'коза',       pic: '🐐' },
+    { u: 'H', l: 'h', name: 'эйч',  say: 'aitch', word: 'hat',       ru: 'шляпа',      pic: '🎩' },
+    { u: 'I', l: 'i', name: 'ай',   say: 'eye',   word: 'insect', ru: 'насекомое',  pic: '🐞' }
+  ];
+  var SOUNDS = [
+    ['æ', 'э'], ['b', 'б'], ['k', 'к'], ['d', 'д'], ['e', 'э'],
+    ['f', 'ф'], ['g', 'г'], ['h', 'х, лёгкий выдох'], ['ɪ', 'короткое и']
+  ];
+  var FONT = '"Andika","Nunito",system-ui,sans-serif';
+  var A = 256;            // analysis resolution
+  var LW = 0.085;         // visible brush width, fraction of board size
+  var COV_LW = 0.125;     // brush width used to judge coverage (forgiving)
+  var THRESH = 0.8;
+  var KEY = 'abc-trace-v1';
+
+  function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function $(id) { return document.getElementById(id); }
+
+  var progress = LETTERS.map(function () { return { u: 0, l: 0 }; });
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY));
+    if (Array.isArray(saved) && saved.length === LETTERS.length) progress = saved;
+  } catch (e) {}
+  function persist() { try { localStorage.setItem(KEY, JSON.stringify(progress)); } catch (e) {} }
+  function isComplete(i) { return progress[i].u > 0 && progress[i].l > 0; }
+  function doneCount() { var n = 0; for (var i = 0; i < LETTERS.length; i++) if (isComplete(i)) n++; return n; }
+
+  var cur = 0;
+  for (var q = 0; q < LETTERS.length; q++) { if (!isComplete(q)) { cur = q; break; } }
+
+  var mc = document.createElement('canvas'); mc.width = mc.height = A;
+  var mctx = mc.getContext('2d', { willReadFrequently: true });
+  var ac = document.createElement('canvas'); ac.width = ac.height = A;
+  var actx = ac.getContext('2d', { willReadFrequently: true });
+
+  function place(c, s, ch) {
+    var fs = s * 0.8;
+    c.font = '700 ' + fs + 'px ' + FONT;
+    c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+    var m = c.measureText(ch);
+    var x = s / 2 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+    return { x: x, y: s * 0.68, fs: fs };
+  }
+  function hline(c, s, y, w, dash, alpha) {
+    c.save(); c.globalAlpha = alpha; c.lineWidth = w; c.setLineDash(dash || []);
+    c.beginPath(); c.moveTo(0, y); c.lineTo(s, y); c.stroke(); c.restore();
+  }
+  function drawLines(c, s, p) {
+    var capH = c.measureText('H').actualBoundingBoxAscent || p.fs * 0.7;
+    var xH = c.measureText('x').actualBoundingBoxAscent || p.fs * 0.5;
+    c.strokeStyle = css('--rule');
+    hline(c, s, p.y - capH, 1.5, null, 0.9);
+    hline(c, s, p.y - xH, 1.5, [7, 7], 0.9);
+    hline(c, s, p.y, 2, null, 1);
+    hline(c, s, p.y + p.fs * 0.2, 1.5, null, 0.5);
+  }
+  function drawStrokes(c, s, strokes, lw, color) {
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = lw * s;
+    c.strokeStyle = color; c.fillStyle = color;
+    for (var i = 0; i < strokes.length; i++) {
+      var st = strokes[i];
+      if (st.length === 1) { c.beginPath(); c.arc(st[0][0] * s, st[0][1] * s, lw * s / 2, 0, 6.2832); c.fill(); continue; }
+      c.beginPath(); c.moveTo(st[0][0] * s, st[0][1] * s);
+      for (var j = 1; j < st.length; j++) c.lineTo(st[j][0] * s, st[j][1] * s);
+      c.stroke();
+    }
+  }
+  function alphaMask(c) {
+    var d = c.getImageData(0, 0, A, A).data, arr = new Uint8Array(A * A), n = 0;
+    for (var i = 0; i < arr.length; i++) { if (d[i * 4 + 3] > 127) { arr[i] = 1; n++; } }
+    return { arr: arr, n: n || 1 };
+  }
+  function inkAlpha(strokes, lw) {
+    actx.clearRect(0, 0, A, A);
+    drawStrokes(actx, A, strokes, lw, '#000');
+    return actx.getImageData(0, 0, A, A).data;
+  }
+
+  /* ---------- boards ---------- */
+  function Board(el) {
+    var b = {
+      el: el, kind: el.dataset.kind,
+      g: el.querySelector('.guide'), k: el.querySelector('.ink'),
+      wrap: el.querySelector('.canvas-wrap'),
+      fill: el.querySelector('.meter i'), pct: el.querySelector('.pct'),
+      starsEl: el.querySelector('.stars'), title: el.querySelector('h2'),
+      size: 0, dpr: 1, strokes: [], cur: null, char: '',
+      mask: null, dil: null, maskN: 1, cov: 0, prec: 0, stars: 0, done: false, last: 0
+    };
+    b.gc = b.g.getContext('2d'); b.kc = b.k.getContext('2d');
+    return b;
+  }
+  var boards = Array.prototype.map.call(document.querySelectorAll('.board'), Board);
+
+  function sizeBoard(b) {
+    var r = b.wrap.getBoundingClientRect();
+    var s = Math.round(r.width); if (!s) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (s === b.size && dpr === b.dpr) return;
+    b.size = s; b.dpr = dpr;
+    [b.g, b.k].forEach(function (cv) { cv.width = cv.height = Math.round(s * dpr); });
+    b.gc.setTransform(dpr, 0, 0, dpr, 0, 0);
+    b.kc.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paint(b);
+  }
+  function drawGuide(b) {
+    var c = b.gc, s = b.size;
+    c.clearRect(0, 0, s, s);
+    if (!b.char || !s) return;
+    var p = place(c, s, b.char);
+    drawLines(c, s, p);
+    c.fillStyle = css('--guide'); c.fillText(b.char, p.x, p.y);
+    c.save();
+    c.setLineDash([s * 0.022, s * 0.018]); c.lineWidth = Math.max(2, s * 0.007); c.lineJoin = 'round';
+    c.strokeStyle = css('--guide-edge'); c.strokeText(b.char, p.x, p.y);
+    c.restore();
+  }
+  function redrawInk(b) {
+    b.kc.clearRect(0, 0, b.size, b.size);
+    drawStrokes(b.kc, b.size, b.strokes, LW, css('--brush'));
+  }
+  function paint(b) { drawGuide(b); redrawInk(b); }
+  function buildMask(b) {
+    mctx.clearRect(0, 0, A, A);
+    var p = place(mctx, A, b.char);
+    mctx.fillStyle = '#000'; mctx.fillText(b.char, p.x, p.y);
+    var m = alphaMask(mctx); b.mask = m.arr; b.maskN = m.n;
+    mctx.clearRect(0, 0, A, A);
+    mctx.lineJoin = 'round'; mctx.lineWidth = 0.06 * A; mctx.strokeStyle = '#000';
+    mctx.fillText(b.char, p.x, p.y); mctx.strokeText(b.char, p.x, p.y);
+    b.dil = alphaMask(mctx).arr;
+  }
+
+  function starsHtml(n) {
+    var h = '';
+    for (var i = 1; i <= 3; i++) h += '<span class="' + (i <= n ? 'on' : '') + '">★</span>';
+    return h;
+  }
+  function updateBoardUI(b) {
+    var shown = b.done ? 100 : Math.min(100, b.cov * 100);
+    b.fill.style.width = shown + '%';
+    b.pct.textContent = b.done ? 'Готово' : Math.round(b.cov * 100) + '%';
+    b.pct.classList.toggle('ok', b.done);
+    b.starsEl.innerHTML = starsHtml(b.stars);
+    b.starsEl.setAttribute('aria-label', 'Звёзд: ' + b.stars + ' из 3');
+  }
+
+  function analyze(b) {
+    if (!b.mask) return;
+    var d = inkAlpha(b.strokes, COV_LW), hit = 0, i;
+    for (i = 0; i < b.mask.length; i++) { if (b.mask[i] && d[i * 4 + 3] > 127) hit++; }
+    b.cov = hit / b.maskN;
+    d = inkAlpha(b.strokes, LW);
+    var ink = 0, ins = 0;
+    for (i = 0; i < b.dil.length; i++) { if (d[i * 4 + 3] > 127) { ink++; if (b.dil[i]) ins++; } }
+    b.prec = ink ? ins / ink : 0;
+    var changed = false;
+    if (b.cov >= THRESH) {
+      var s = b.prec >= 0.8 ? 3 : b.prec >= 0.6 ? 2 : 1;
+      if (s > b.stars) { b.stars = s; changed = true; }
+      if (!b.done) { b.done = true; changed = true; }
+    }
+    updateBoardUI(b);
+    if (changed) onProgress();
+  }
+
+  /* ---------- page state ---------- */
+  var announced = false;
+  function onProgress() {
+    var wasComplete = isComplete(cur);
+    progress[cur] = { u: boards[0].stars, l: boards[1].stars };
+    persist();
+    renderTabs(); renderNav();
+    if (!wasComplete && isComplete(cur)) {
+      var L = LETTERS[cur], total = progress[cur].u + progress[cur].l;
+      if (doneCount() === LETTERS.length) {
+        $('msg').textContent = 'Все 9 букв пройдены. Отличная работа!';
+      } else {
+        $('msg').textContent = 'Буква ' + L.u + L.l + ' пройдена, звёзд: ' + total + ' из 6.' + (cur < LETTERS.length - 1 ? ' Можно идти дальше.' : '');
+      }
+    }
+  }
+
+  var tabsEl = $('tabs');
+  LETTERS.forEach(function (L, i) {
+    var t = document.createElement('button');
+    t.type = 'button'; t.className = 'tab'; t.textContent = L.u + L.l;
+    t.setAttribute('aria-label', 'Буква ' + L.u + L.l);
+    t.addEventListener('click', function () { setLetter(i); });
+    tabsEl.appendChild(t);
+  });
+  function renderTabs() {
+    Array.prototype.forEach.call(tabsEl.children, function (t, i) {
+      t.setAttribute('aria-current', i === cur ? 'true' : 'false');
+      t.classList.toggle('done', isComplete(i));
+    });
+  }
+  function renderNav() {
+    var prev = $('prev'), next = $('next');
+    prev.disabled = cur === 0; next.disabled = cur === LETTERS.length - 1;
+    prev.textContent = cur > 0 ? '← ' + LETTERS[cur - 1].u + LETTERS[cur - 1].l : '←';
+    next.textContent = cur < LETTERS.length - 1 ? LETTERS[cur + 1].u + LETTERS[cur + 1].l + ' →' : '→';
+    next.classList.toggle('ready', isComplete(cur) && cur < LETTERS.length - 1);
+    $('status').textContent = 'Пройдено ' + doneCount() + ' из ' + LETTERS.length;
+  }
+  function renderInfo() {
+    var L = LETTERS[cur];
+    $('pic').textContent = L.pic;
+    $('name').innerHTML = '<span class="pair">' + L.u + L.l + '</span> звук [' + SOUNDS[cur][0] + '] — «' + SOUNDS[cur][1] + '»';
+    $('word').innerHTML = '<b>' + L.word.charAt(0) + '</b>' + L.word.slice(1) + ' — ' + L.ru;
+  }
+
+  function setLetter(i) {
+    cur = i; announced = false;
+    var L = LETTERS[i];
+    boards.forEach(function (b) {
+      b.char = b.kind === 'u' ? L.u : L.l;
+      b.strokes = []; b.cur = null; b.cov = 0; b.prec = 0;
+      b.stars = progress[i][b.kind]; b.done = b.stars > 0;
+      b.title.textContent = (b.kind === 'u' ? 'Заглавная ' : 'Строчная ') + b.char;
+      b.k.setAttribute('aria-label', 'Поле для обводки: ' + (b.kind === 'u' ? 'заглавная ' : 'строчная ') + b.char);
+      buildMask(b); paint(b); updateBoardUI(b);
+    });
+    $('msg').textContent = isComplete(i) ? 'Эта буква уже пройдена. Можно потренироваться ещё раз.' : '';
+    renderInfo(); renderTabs(); renderNav();
+  }
+
+  /* ---------- drawing ---------- */
+  function pt(b, e) {
+    var r = b.k.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+  }
+  boards.forEach(function (b) {
+    var k = b.k;
+    k.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    k.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      try { k.setPointerCapture(e.pointerId); } catch (x) {}
+      var p = pt(b, e);
+      b.cur = [p]; b.strokes.push(b.cur);
+      var s = b.size, c = b.kc;
+      c.fillStyle = css('--brush'); c.beginPath(); c.arc(p[0] * s, p[1] * s, LW * s / 2, 0, 6.2832); c.fill();
+    });
+    k.addEventListener('pointermove', function (e) {
+      if (!b.cur) return;
+      var p = pt(b, e), l = b.cur[b.cur.length - 1];
+      if (Math.abs(p[0] - l[0]) + Math.abs(p[1] - l[1]) < 0.003) return;
+      var s = b.size, c = b.kc;
+      c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = LW * s; c.strokeStyle = css('--brush');
+      c.beginPath(); c.moveTo(l[0] * s, l[1] * s); c.lineTo(p[0] * s, p[1] * s); c.stroke();
+      b.cur.push(p);
+      var now = performance.now();
+      if (now - b.last > 140) { b.last = now; analyze(b); }
+    });
+    function end() { if (!b.cur) return; b.cur = null; analyze(b); }
+    k.addEventListener('pointerup', end);
+    k.addEventListener('pointercancel', end);
+
+    b.el.querySelector('.undo').addEventListener('click', function () {
+      b.strokes.pop(); redrawInk(b); analyze(b);
+    });
+    b.el.querySelector('.clear').addEventListener('click', function () {
+      b.strokes = []; b.cov = 0; b.prec = 0; redrawInk(b); updateBoardUI(b);
+    });
+    if (window.ResizeObserver) new ResizeObserver(function () { sizeBoard(b); }).observe(b.wrap);
+  });
+
+  /* ---------- controls ---------- */
+  $('prev').addEventListener('click', function () { if (cur > 0) setLetter(cur - 1); });
+  $('next').addEventListener('click', function () { if (cur < LETTERS.length - 1) setLetter(cur + 1); });
+
+  var speakBtn = $('speak');
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') speakBtn.hidden = true;
+  speakBtn.addEventListener('click', function () {
+    try {
+      var L = LETTERS[cur];
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(L.word);
+      u.lang = 'en-US'; u.rate = 0.8;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  });
+
+  var resetBtn = $('reset'), resetTimer = 0;
+  resetBtn.addEventListener('click', function () {
+    if (resetBtn.dataset.armed === '1') {
+      clearTimeout(resetTimer); resetBtn.dataset.armed = ''; resetBtn.textContent = 'Сбросить прогресс';
+      progress = LETTERS.map(function () { return { u: 0, l: 0 }; });
+      persist(); setLetter(0);
+      $('msg').textContent = 'Прогресс сброшен. Начинаем с буквы Aa.';
+    } else {
+      resetBtn.dataset.armed = '1'; resetBtn.textContent = 'Нажми ещё раз, чтобы сбросить';
+      resetTimer = setTimeout(function () { resetBtn.dataset.armed = ''; resetBtn.textContent = 'Сбросить прогресс'; }, 3500);
+    }
+  });
+
+  function repaintAll() { boards.forEach(paint); }
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', repaintAll); } catch (e) {}
+  new MutationObserver(repaintAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  function start() {
+    boards.forEach(sizeBoard);
+    setLetter(cur);
+  }
+  var fontReady = (document.fonts && document.fonts.load)
+    ? Promise.race([document.fonts.load('700 100px Andika', 'AaBbCcDdEeFfGgHhIi'), new Promise(function (r) { setTimeout(r, 1500); })])
+    : Promise.resolve();
+  fontReady.then(start, start);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      boards.forEach(function (b) { if (b.char) { buildMask(b); paint(b); } });
+    });
+  }
+})();
+</script>
